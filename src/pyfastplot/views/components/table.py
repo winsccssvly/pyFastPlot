@@ -10,6 +10,8 @@ class TableWidget(QTableView):
     delete_cols_signal = Signal(list)
     clear_cells_signal = Signal(list)
     set_as_labels_signal = Signal(int)
+    undo_signal = Signal()
+    redo_signal = Signal()
 
     def __init__(self):
         super().__init__()
@@ -33,8 +35,15 @@ class TableWidget(QTableView):
         self.model_obj.set_table(data_table)
 
     def keyPressEvent(self, e):
-        if e.modifiers() & Qt.KeyboardModifier.ControlModifier and e.key() == Qt.Key.Key_V:
-            self.paste_data()
+        if e.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            if e.key() == Qt.Key.Key_V:
+                self.paste_data()
+            elif e.key() == Qt.Key.Key_Z:
+                self.undo_signal.emit()
+            elif e.key() == Qt.Key.Key_Y:
+                self.redo_signal.emit()
+            else:
+                super().keyPressEvent(e)
         elif e.key() == Qt.Key.Key_Delete or e.key() == Qt.Key.Key_Backspace:
             self.clear_selected_cells()
         else:

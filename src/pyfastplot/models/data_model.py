@@ -9,17 +9,45 @@ class DataTable:
         self.x_sel = "Col 1"
         self.y_sels = []
         self.file_path = None
+        self._undo_stack = []
+        self._redo_stack = []
+
+    def save_state(self):
+        state = (self.data.copy(), list(self.labels))
+        self._undo_stack.append(state)
+        if len(self._undo_stack) > 20:  # Keep last 20 states
+            self._undo_stack.pop(0)
+        self._redo_stack.clear()
+
+    def undo(self):
+        if self._undo_stack:
+            current_state = (self.data.copy(), list(self.labels))
+            self._redo_stack.append(current_state)
+            self.data, self.labels = self._undo_stack.pop()
+            return True
+        return False
+
+    def redo(self):
+        if self._redo_stack:
+            current_state = (self.data.copy(), list(self.labels))
+            self._undo_stack.append(current_state)
+            self.data, self.labels = self._redo_stack.pop()
+            return True
+        return False
 
     def delete_rows(self, row_indices):
+        self.save_state()
         self.data = np.delete(self.data, row_indices, axis=0)
 
     def delete_cols(self, col_indices):
+        self.save_state()
         self.data = np.delete(self.data, col_indices, axis=1)
         for idx in sorted(col_indices, reverse=True):
             if idx < len(self.labels):
                 self.labels.pop(idx)
 
     def clear_cells(self, cells):
+        self.save_state()
         for r, c in cells:
             if r < self.data.shape[0] and c < self.data.shape[1]:
                 self.data[r, c] = np.nan
@@ -37,11 +65,13 @@ class DataTable:
                 self.labels.append(f"Col {len(self.labels)+1}")
 
     def update_cell(self, row, col, value):
+        self.save_state()
         self.ensure_capacity(row + 1, col + 1)
         self.data[row, col] = value
 
     def paste_data(self, start_row, start_col, parsed_data):
         if not parsed_data: return
+        self.save_state()
         max_r = start_row + len(parsed_data)
         max_c = start_col + max((len(r) for r in parsed_data), default=0)
         self.ensure_capacity(max_r, max_c)
@@ -116,12 +146,19 @@ class DataModel:
                             row_vals.append(val if val else np.nan)
                     parsed_data.append(row_vals)
                 
-            table.paste_data(0, 0, parsed_data)
+            # Paste data without saving state since this is the initial load
+            max_r = len(parsed_data)
+            max_c = max((len(r) for r in parsed_data), default=0)
+            table.ensure_capacity(max_r, max_c)
+            for r_offset, row_data in enumerate(parsed_data):
+                for c_offset, val in enumerate(row_data):
+                    table.data[r_offset, c_offset] = val
             
             # For complex CSVs, we'll just use the default labels (Col 1, Col 2...)
-            # The user can rename them or we can implement a logic to find the header row later.
             num_cols = table.data.shape[1]
             table.labels = [f"Col {i+1}" for i in range(num_cols)]
+            table._undo_stack.clear()
+            table._redo_stack.clear()
                         
         except Exception as e:
             print(f"Failed to load CSV: {e}")
@@ -217,11 +254,22 @@ class DataModel:
         if self.current_table:
             self.current_table.clear_cells(cells)
 
+    def undo_current_table(self):
+        if self.current_table:
+            return self.current_table.undo()
+        return False
+
+    def redo_current_table(self):
+        if self.current_table:
+            return self.current_table.redo()
+        return False
+
     def promote_row_to_labels(self, row_index):
         table = self.current_table
         if not table or row_index >= table.data.shape[0]:
             return
         
+        table.save_state()
         new_labels = []
         for c in range(table.data.shape[1]):
             val = table.data[row_index, c]
@@ -229,7 +277,7 @@ class DataModel:
             new_labels.append(label)
         
         table.labels = new_labels
-        table.delete_rows([row_index])
+        table.data = np.delete(table.data, [row_index], axis=0)
 
     def add_to_cart(self, table_name, x_label, y_label, x_data, y_data):
         self.line_data.append({

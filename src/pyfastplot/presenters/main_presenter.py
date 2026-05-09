@@ -35,6 +35,8 @@ class MainPresenter:
         self.view.tableWidget.delete_cols_signal.connect(self.on_delete_cols)
         self.view.tableWidget.clear_cells_signal.connect(self.on_clear_cells)
         self.view.tableWidget.set_as_labels_signal.connect(self.on_set_as_labels)
+        self.view.tableWidget.undo_signal.connect(self.on_undo)
+        self.view.tableWidget.redo_signal.connect(self.on_redo)
         
         self.view.tableWidget.model_obj.dataChanged.connect(self.on_model_data_changed)
         
@@ -198,6 +200,14 @@ class MainPresenter:
     def on_set_as_labels(self, row_index):
         self.model.promote_row_to_labels(row_index)
         self._update_view_for_current_table()
+
+    def on_undo(self):
+        if self.model.undo_current_table():
+            self._update_view_for_current_table()
+
+    def on_redo(self):
+        if self.model.redo_current_table():
+            self._update_view_for_current_table()
 
     def on_new_plot(self):
         if self._add_to_cart(clear_first=True):
