@@ -31,8 +31,9 @@ class MainPresenter:
         self.view.tableWidget.delete_rows_signal.connect(self.on_delete_rows)
         self.view.tableWidget.delete_cols_signal.connect(self.on_delete_cols)
         self.view.tableWidget.clear_cells_signal.connect(self.on_clear_cells)
+        self.view.tableWidget.set_as_labels_signal.connect(self.on_set_as_labels)
         
-        self.view.tableWidget.cellChanged.connect(self.on_table_cell_changed)
+        self.view.tableWidget.model_obj.dataChanged.connect(self.on_model_data_changed)
         
         self.view.combo_x.currentTextChanged.connect(self.on_x_selection_changed)
         self.view.combo_y.currentTextChanged.connect(self.on_y_selection_changed)
@@ -46,10 +47,10 @@ class MainPresenter:
     def _update_view_for_current_table(self):
         if self.model.current_table:
             self.view.update_selection_ui(self.model.current_table.labels)
-            self.view.update_table_view(self.model.current_table.data, self.model.current_table.labels)
+            self.view.tableWidget.set_data_table(self.model.current_table)
         else:
             self.view.update_selection_ui([])
-            self.view.update_table_view([], [])
+            self.view.tableWidget.set_data_table(None)
 
     def on_copy_to_clipboard(self):
         import io
@@ -105,29 +106,12 @@ class MainPresenter:
             if item:
                 self.model.update_cart_label(row, item.text())
 
-    def on_table_cell_changed(self, row, col):
-        item = self.view.tableWidget.item(row, col)
-        val_str = item.text() if item else ""
-        if row == 0:
-            self.model.update_label(col, val_str)
-            if self.model.current_table:
-                self.view.update_selection_ui(self.model.current_table.labels)
-        else:
-            try:
-                val = float(val_str)
-            except ValueError:
-                val = val_str if val_str else np.nan
-            
-            self.view.tableWidget.blockSignals(True)
-            
-            prev_label_count = len(self.model.current_table.labels) if self.model.current_table else 0
-            
-            self.model.update_data_cell(row - 1, col, val)
-            
-            if self.model.current_table and len(self.model.current_table.labels) > prev_label_count:
-                self.view.update_selection_ui(self.model.current_table.labels)
-                
-            self.view.tableWidget.blockSignals(False)
+    def on_model_data_changed(self, topLeft, bottomRight, roles):
+        # If headers/labels were part of the data and they changed, update UI
+        if self.model.current_table:
+            # For now, labels are separate from data, but if we ever sync them, 
+            # we'd call self.view.update_selection_ui(self.model.current_table.labels)
+            pass
 
     def on_add_input_table(self):
         new_name = self.model.add_input_table()
@@ -208,6 +192,10 @@ class MainPresenter:
         self.model.clear_data_cells(cells)
         self._update_view_for_current_table()
 
+    def on_set_as_labels(self, row_index):
+        self.model.promote_row_to_labels(row_index)
+        self._update_view_for_current_table()
+
     def on_new_plot(self):
         if self._add_to_cart(clear_first=True):
             self.on_plot_data()
@@ -255,8 +243,8 @@ class MainPresenter:
                 clean_x.append(float(xv))
                 clean_y.append(float(yv))
             except (ValueError, TypeError):
-                self.view.warning_label.setText("[Warning] Data contains non-numeric strings. Please correct them to valid numbers.")
-                return False
+                # Skip metadata or non-numeric header rows
+                continue
         
         if clear_first:
             self.model.line_data.clear()

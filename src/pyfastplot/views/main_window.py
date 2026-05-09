@@ -173,54 +173,7 @@ class MainWindow(QMainWindow):
         
         return bottom_layout
 
-    def update_table_view(self, data_store, labels):
-        self.tableWidget.blockSignals(True)
-        num_cols = max(len(data_store), len(labels))
-        max_rows = max((len(arr) for arr in data_store), default=0)
-        
-        # Add buffer for manual input
-        buffer_cols = 20
-        buffer_rows = 100
-        
-        display_cols = max(num_cols + buffer_cols, 20)
-        display_rows = max(max_rows + buffer_rows, 100)
-        
-        if num_cols == 0 and not self.table_list_widget.selectedItems():
-            self.tableWidget.setRowCount(0)
-            self.tableWidget.setColumnCount(0)
-            self.tableWidget.blockSignals(False)
-            return
 
-        self.tableWidget.setColumnCount(display_cols)
-        self.tableWidget.setRowCount(display_rows + 1)
-        
-        for c_idx in range(display_cols):
-            label = labels[c_idx] if c_idx < len(labels) else f"Col {c_idx+1}"
-            item = QTableWidgetItem(label)
-            item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsEnabled)
-            item.setBackground(QColor(230, 230, 230))
-            font = QFont()
-            font.setBold(True)
-            item.setFont(font)
-            self.tableWidget.setItem(0, c_idx, item)
-            
-        for c_idx in range(display_cols):
-            col_data = data_store[c_idx] if c_idx < len(data_store) else []
-            for r_idx in range(display_rows):
-                if r_idx < len(col_data):
-                    val = col_data[r_idx]
-                    if isinstance(val, float) and np.isnan(val):
-                        display_text = ""
-                    else:
-                        display_text = str(val)
-                else:
-                    display_text = ""
-                    
-                item = QTableWidgetItem(display_text)
-                item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsEnabled)
-                self.tableWidget.setItem(r_idx + 1, c_idx, item)
-                
-        self.tableWidget.blockSignals(False)
 
     def update_selection_ui(self, labels):
         curr_x = self.combo_x.currentText()

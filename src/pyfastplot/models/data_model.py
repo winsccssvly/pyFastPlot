@@ -4,64 +4,51 @@ import numpy as np
 class DataTable:
     def __init__(self, name):
         self.name = name
-        self.data = [] # List of np.array (1D) of dtype=object to hold mixed types
-        self.labels = []
+        self.data = np.full((100, 20), np.nan, dtype=object) # Initial buffer
+        self.labels = [f"Col {i+1}" for i in range(20)]
         self.x_sel = "Col 1"
         self.y_sels = []
         self.file_path = None
 
     def delete_rows(self, row_indices):
-        for row_idx in sorted(row_indices, reverse=True):
-            for c in range(len(self.data)):
-                col_data = self.data[c].tolist()
-                if row_idx < len(col_data):
-                    col_data.pop(row_idx)
-                    self.data[c] = np.array(col_data, dtype=object)
+        self.data = np.delete(self.data, row_indices, axis=0)
 
     def delete_cols(self, col_indices):
-        for col_idx in sorted(col_indices, reverse=True):
-            if col_idx < len(self.data):
-                self.data.pop(col_idx)
-            if col_idx < len(self.labels):
-                self.labels.pop(col_idx)
+        self.data = np.delete(self.data, col_indices, axis=1)
+        for idx in sorted(col_indices, reverse=True):
+            if idx < len(self.labels):
+                self.labels.pop(idx)
 
     def clear_cells(self, cells):
         for r, c in cells:
-            if c < len(self.data):
-                col_data = self.data[c].tolist()
-                if r < len(col_data):
-                    col_data[r] = np.nan
-                    self.data[c] = np.array(col_data, dtype=object)
+            if r < self.data.shape[0] and c < self.data.shape[1]:
+                self.data[r, c] = np.nan
 
     def ensure_capacity(self, num_rows, num_cols):
-        while len(self.labels) < num_cols:
-            self.labels.append(f"Col {len(self.labels)+1}")
-            self.data.append(np.array([], dtype=object))
+        curr_rows, curr_cols = self.data.shape
+        if num_rows > curr_rows or num_cols > curr_cols:
+            new_rows = max(num_rows, curr_rows)
+            new_cols = max(num_cols, curr_cols)
+            new_data = np.full((new_rows, new_cols), np.nan, dtype=object)
+            new_data[:curr_rows, :curr_cols] = self.data
+            self.data = new_data
             
-        for c in range(len(self.data)):
-            col_data = self.data[c].tolist()
-            if len(col_data) < num_rows:
-                col_data.extend([np.nan] * (num_rows - len(col_data)))
-                self.data[c] = np.array(col_data, dtype=object)
+            while len(self.labels) < new_cols:
+                self.labels.append(f"Col {len(self.labels)+1}")
 
     def update_cell(self, row, col, value):
         self.ensure_capacity(row + 1, col + 1)
-        col_data = self.data[col].tolist()
-        col_data[row] = value
-        self.data[col] = np.array(col_data, dtype=object)
+        self.data[row, col] = value
 
     def paste_data(self, start_row, start_col, parsed_data):
+        if not parsed_data: return
         max_r = start_row + len(parsed_data)
         max_c = start_col + max((len(r) for r in parsed_data), default=0)
         self.ensure_capacity(max_r, max_c)
         
         for r_offset, row_data in enumerate(parsed_data):
             for c_offset, val in enumerate(row_data):
-                col = start_col + c_offset
-                row = start_row + r_offset
-                col_data = self.data[col].tolist()
-                col_data[row] = val
-                self.data[col] = np.array(col_data, dtype=object)
+                self.data[start_row + r_offset, start_col + c_offset] = val
 
 class DataModel:
     """
@@ -114,42 +101,27 @@ class DataModel:
         
     def _parse_csv_to_table(self, table, file_path):
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-                if not lines:
-                    raise Exception("Empty file")
-                
-                first_line = lines[0].strip()
-                headers = first_line.split(',')
-            
-            is_header = False
-            for h in headers:
-                try:
-                    float(h)
-                except ValueError:
-                    is_header = True
-                    break
-            
-            skip_lines = 1 if is_header else 0
-            
+            import csv
             parsed_data = []
-            for line in lines[skip_lines:]:
-                if not line.strip(): continue
-                row_vals = []
-                for val in line.strip().split(','):
-                    val = val.strip()
-                    try:
-                        row_vals.append(float(val))
-                    except ValueError:
-                        row_vals.append(val if val else np.nan)
-                parsed_data.append(row_vals)
+            with open(file_path, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    row_vals = []
+                    for val in row:
+                        val = val.strip()
+                        try:
+                            # Try converting to float for internal use, but keep as string if it fails
+                            row_vals.append(float(val))
+                        except ValueError:
+                            row_vals.append(val if val else np.nan)
+                    parsed_data.append(row_vals)
                 
             table.paste_data(0, 0, parsed_data)
             
-            if is_header:
-                for i, h in enumerate(headers):
-                    if i < len(table.labels):
-                        table.labels[i] = h.strip() if h.strip() else f"Col {i+1}"
+            # For complex CSVs, we'll just use the default labels (Col 1, Col 2...)
+            # The user can rename them or we can implement a logic to find the header row later.
+            num_cols = table.data.shape[1]
+            table.labels = [f"Col {i+1}" for i in range(num_cols)]
                         
         except Exception as e:
             print(f"Failed to load CSV: {e}")
@@ -213,8 +185,9 @@ class DataModel:
         table = self.current_table
         if table:
             try:
+                # Find the index of the label
                 idx = table.labels.index(label_name)
-                return table.data[idx]
+                return table.data[:, idx]
             except ValueError:
                 return None
         return None
@@ -243,6 +216,20 @@ class DataModel:
     def clear_data_cells(self, cells):
         if self.current_table:
             self.current_table.clear_cells(cells)
+
+    def promote_row_to_labels(self, row_index):
+        table = self.current_table
+        if not table or row_index >= table.data.shape[0]:
+            return
+        
+        new_labels = []
+        for c in range(table.data.shape[1]):
+            val = table.data[row_index, c]
+            label = str(val).strip() if (isinstance(val, str) or not np.isnan(val)) else f"Col {c+1}"
+            new_labels.append(label)
+        
+        table.labels = new_labels
+        table.delete_rows([row_index])
 
     def add_to_cart(self, table_name, x_label, y_label, x_data, y_data):
         self.line_data.append({
