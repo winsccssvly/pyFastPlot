@@ -9,7 +9,6 @@ class FileListWidget(QListWidget):
     
     def __init__(self):
         super().__init__()
-        self.setAcceptDrops(True)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
         self.itemChanged.connect(self.on_item_changed)
@@ -46,22 +45,3 @@ class FileListWidget(QListWidget):
                 self.delete_table_signal.emit(item.text())
             elif reload_action and action == reload_action:
                 self.reload_table_signal.emit(item.text())
-
-    def dragEnterEvent(self, e):
-        if e.mimeData().hasUrls():
-            e.accept()
-        else:
-            e.ignore()
-            
-    def dragMoveEvent(self, e):
-        if e.mimeData().hasUrls():
-            e.accept()
-        else:
-            e.ignore()
-            
-    def dropEvent(self, event):
-        if event.mimeData().hasUrls():
-            for url in event.mimeData().urls():
-                file_path = url.toLocalFile()
-                if file_path.lower().endswith('.csv'):
-                    self.file_dropped_signal.emit(file_path)
