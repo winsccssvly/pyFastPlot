@@ -12,6 +12,9 @@ class MainPresenter:
         self.view = view
         self.model = model
         self._connect_signals()
+        
+        # Initial sync of UI settings to the plot canvas
+        self.on_plot_data()
 
     def _connect_signals(self):
         self.view.add_input_btn.clicked.connect(self.on_add_input_table)

@@ -20,9 +20,9 @@ class PlotOptionsWidget(QWidget):
         global_layout = QFormLayout(global_tab)
         
         self.fig_width = QDoubleSpinBox()
-        self.fig_width.setValue(5.0)
+        self.fig_width.setValue(6.0)
         self.fig_height = QDoubleSpinBox()
-        self.fig_height.setValue(4.0)
+        self.fig_height.setValue(5.0)
         global_layout.addRow("Fig Width (in):", self.fig_width)
         global_layout.addRow("Fig Height (in):", self.fig_height)
         

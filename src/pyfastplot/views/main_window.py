@@ -63,7 +63,7 @@ class MainWindow(QMainWindow):
         
         graph_layout = QVBoxLayout()
         
-        self.sc = MplCanvas(self, width=5, height=4, dpi=100)
+        self.sc = MplCanvas(self, width=6, height=5, dpi=100)
         self.toolbar = NavigationToolbar2QT(self.sc, self)
         
         graph_layout.addWidget(self.toolbar)
