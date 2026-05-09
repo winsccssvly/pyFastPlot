@@ -46,7 +46,7 @@ Section "MainSection" SEC01
   SetOverwrite ifnewer
   
   ; Includes the entire Nuitka distribution folder recursively
-  File /r "..\..\build\app.dist\*.*"
+  File /r "..\..\build\main.dist\*.*"
   
   ; Shortcuts
   CreateDirectory "$SMPROGRAMS\pyFastPlot"

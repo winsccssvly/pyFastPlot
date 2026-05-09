@@ -8,13 +8,14 @@ from .presenters.main_presenter import MainPresenter
 
 def resource_path(relative_path):
     """ Helper function to handle resource paths for both dev environment and compiled executable. """
-    # When built with Nuitka/PyInstaller, use the temporary folder path (_MEIPASS).
-    # In standard Python environment, use the current directory.
-    # The root path should be 3 levels up from src/pyfastplot/app.py
-    current_file_path = os.path.abspath(__file__)
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file_path)))
+    if getattr(sys, 'frozen', False) or 'NUITKA_PYTHON_EXE' in os.environ:
+        # For Nuitka/PyInstaller standalone, assets are usually in the same directory as the executable
+        base_path = os.path.dirname(sys.executable)
+    else:
+        # In development, base path is the project root (3 levels up from src/pyfastplot/app.py)
+        current_file_path = os.path.abspath(__file__)
+        base_path = os.path.dirname(os.path.dirname(os.path.dirname(current_file_path)))
     
-    base_path = getattr(sys, '_MEIPASS', project_root)
     return os.path.join(base_path, relative_path)
 
 def main():

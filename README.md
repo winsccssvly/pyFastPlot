@@ -42,6 +42,7 @@ To distribute the application as a standalone executable for users without a Pyt
 ### Build Command
 Run the following command from the project root:
 ```cmd
+set PYTHONPATH=src
 python -m nuitka --standalone ^
     --enable-plugins=pyside6,matplotlib,anti-bloat ^
     --noinclude-qt-plugins=webengine,pdf,network ^
@@ -50,7 +51,7 @@ python -m nuitka --standalone ^
     --windows-icon-from-ico=assets/data-analytics.ico ^
     --output-dir=build ^
     --output-filename=pyFastPlot ^
-    src/pyfastplot/app.py
+    main.py
 ```
 
 ### Build Options
