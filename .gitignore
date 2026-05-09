@@ -1,0 +1,33 @@
+# Python cache
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# Build and Distribution
+packaging/nsis/*.exe
+dist/
+build/
+*.spec
+*.exe
+
+# Virtual Environment
+venv/
+.venv/
+env/
+bin/
+include/
+lib/
+share/
+
+# Editor and Tool settings
+.vscode/
+.agents/
+.idea/
+.project
+.pydevproject
+.settings/
+
+# OS generated files
+Thumbs.db
+Desktop.ini
+.DS_Store

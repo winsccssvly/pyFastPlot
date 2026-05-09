@@ -1,0 +1,5 @@
+PySide6>=6.4.0
+matplotlib>=3.7.0
+numpy>=1.24.0
+nuitka>=1.5.0
+zstandard>=0.21.0
