@@ -35,6 +35,7 @@ class MainPresenter:
         self.view.tableWidget.delete_cols_signal.connect(self.on_delete_cols)
         self.view.tableWidget.clear_cells_signal.connect(self.on_clear_cells)
         self.view.tableWidget.set_as_labels_signal.connect(self.on_set_as_labels)
+        self.view.tableWidget.rename_col_signal.connect(self.on_rename_column)
         self.view.tableWidget.undo_signal.connect(self.on_undo)
         self.view.tableWidget.redo_signal.connect(self.on_redo)
         
@@ -62,8 +63,10 @@ class MainPresenter:
         from PySide6.QtGui import QImage, QPixmap
         
         dpi = self.view.plot_options.dpi_input.value()
-        buf = io.BytesIO()
+        fig_width = self.view.plot_options.fig_width.value()
+        fig_height = self.view.plot_options.fig_height.value()
         
+        buf = io.BytesIO()
         try:
             self.view.sc.figure.savefig(buf, format='png', dpi=dpi, bbox_inches='tight')
             buf.seek(0)
@@ -76,6 +79,7 @@ class MainPresenter:
                 clipboard.setPixmap(pixmap)
         except Exception as e:
             QMessageBox.warning(self.view, "Error", f"An error occurred while copying to clipboard:\n{e}")
+
             
     def on_save_plot(self):
         from PySide6.QtWidgets import QFileDialog
@@ -93,6 +97,7 @@ class MainPresenter:
                 self.view.sc.figure.savefig(file_path, dpi=dpi, bbox_inches='tight')
             except Exception as e:
                 QMessageBox.critical(self.view, "Error", f"An error occurred while saving the file:\n{e}")
+
         
     def on_x_selection_changed(self, text):
         if text:
@@ -201,6 +206,10 @@ class MainPresenter:
         self.model.promote_row_to_labels(row_index)
         self._update_view_for_current_table()
 
+    def on_rename_column(self, col_index, new_name):
+        self.model.update_label(col_index, new_name)
+        self._update_view_for_current_table()
+
     def on_undo(self):
         if self.model.undo_current_table():
             self._update_view_for_current_table()
@@ -273,82 +282,61 @@ class MainPresenter:
         import matplotlib as mpl
         import warnings
         import re
+        import numpy as np
         from PySide6.QtCore import Qt
         
         # Suppress fallback font warnings since they clutter the console even when fallback works
         warnings.filterwarnings("ignore", message=".*Glyph.*missing from font.*")
 
-        # Gather text for rendering (excluding raw data) to detect language
+        # Collect all text to determine if Korean font is needed
         title_text = self.view.plot_options.title_input.text()
-        final_xlabel = self.view.plot_options.xlabel_input.text()
-        final_ylabel = self.view.plot_options.ylabel_input.text()
+        custom_xlabel = self.view.plot_options.xlabel_input.text()
+        custom_ylabel = self.view.plot_options.ylabel_input.text()
         
-        displayed_texts = [title_text, final_xlabel, final_ylabel]
-        for row_idx, cart_item in enumerate(self.model.line_data):
-            chk_item = self.view.plot_options.line_table.item(row_idx, 0)
-            if chk_item and chk_item.checkState() == Qt.CheckState.Checked:
-                displayed_texts.append(cart_item["y_label"])
-                
-        # Check for Korean characters in text
-        has_korean = any(bool(re.search(r'[가-힣ㄱ-ㅎㅏ-ㅣ]', str(t))) for t in displayed_texts if t)
-
-        import platform
-        is_mac = platform.system() == "Darwin"
-        # Set OS-specific default fonts for Korean
-        kor_font = 'AppleGothic' if is_mac else 'Malgun Gothic'
-
-        font_selection = self.view.plot_options.font_family.currentText()
-        actual_font = ""
-
-        if font_selection == "Auto":
-            if has_korean:
-                mpl.rcParams['font.family'] = kor_font
-                actual_font = f"{kor_font} (Auto-detected Korean)"
-            else:
-                mpl.rcParams['font.family'] = 'sans-serif'
-                actual_font = "DejaVu Sans (Default)"
-        elif font_selection == "DejaVu Sans (Default)":
-            mpl.rcParams['font.family'] = 'sans-serif'
-            actual_font = "DejaVu Sans (Default)"
-        elif font_selection == "Korean (System Default)":
-            mpl.rcParams['font.family'] = kor_font
-            actual_font = kor_font
-        else:
-            mpl.rcParams['font.family'] = font_selection
-            actual_font = font_selection
+        displayed_texts = [title_text, custom_xlabel, custom_ylabel]
+        for cart_item in self.model.line_data:
+            displayed_texts.append(cart_item["y_label"])
             
-        # Display the actual font name applied to the UI
-        self.view.plot_options.applied_font_label.setText(f"Applied Font: {actual_font}")
-        
-        mpl.rcParams['axes.unicode_minus'] = False
+        has_korean = any(bool(re.search(r'[가-힣ㄱ-ㅎㅏ-ㅣ]', str(t))) for t in displayed_texts if t)
+        font_selection = self.view.plot_options.font_family.currentText()
 
-        # 1. Retrieve Global Settings
-        fig_width = self.view.plot_options.fig_width.value()
-        fig_height = self.view.plot_options.fig_height.value()
-        self.view.sc.set_fig_size(fig_width, fig_height)
+        settings = {
+            'font_selection': font_selection,
+            'has_korean': has_korean,
+            'fig_width': self.view.plot_options.fig_width.value(),
+            'fig_height': self.view.plot_options.fig_height.value(),
+            'title': title_text,
+            'title_size': self.view.plot_options.title_size.value(),
+            'xlabel': custom_xlabel,
+            'ylabel': custom_ylabel,
+            'label_size': self.view.plot_options.label_size.value(),
+            'tick_size': self.view.plot_options.tick_size.value(),
+            'xmin': self.view.plot_options.xmin_input.text(),
+            'xmax': self.view.plot_options.xmax_input.text(),
+            'ymin': self.view.plot_options.ymin_input.text(),
+            'ymax': self.view.plot_options.ymax_input.text(),
+            'x_log': self.view.plot_options.x_log.isChecked(),
+            'y_log': self.view.plot_options.y_log.isChecked(),
+            'show_legend': self.view.plot_options.show_legend.isChecked(),
+            'legend_size': self.view.plot_options.legend_size.value(),
+            'legend_loc': self.view.plot_options.legend_loc.currentText(),
+        }
+
+        # Keep internal physical inches exact, adjust dpi dynamically
+        self.view.sc.set_fig_size(settings['fig_width'], settings['fig_height'])
+        self.view.aspect_wrapper.set_aspect_ratio(settings['fig_width'], settings['fig_height'])
         
-        # 2. Prepare for plotting
         self.view.clear_plot()
         
-        y_labels = []
-        
-        # 3. Plot cart data
         for row_idx, cart_item in enumerate(self.model.line_data):
-            # Verify checkbox state
             chk_item = self.view.plot_options.line_table.item(row_idx, 0)
             if chk_item and chk_item.checkState() != Qt.CheckState.Checked:
                 continue
                 
-            y_label = cart_item["y_label"]
-            y_labels.append(y_label)
-            
             x_data = cart_item["x_data"]
             y_data = cart_item["y_data"]
             
-            if x_data is None:
-                x_data_current = np.arange(len(y_data))
-            else:
-                x_data_current = x_data
+            x_data_current = np.arange(len(y_data)) if x_data is None else x_data
                 
             min_len = min(len(x_data_current), len(y_data))
             x_plot = x_data_current[:min_len]
@@ -357,48 +345,8 @@ class MainPresenter:
             line_kwargs = self.view.plot_options.get_line_options(row_idx)
             line_kwargs = {k: v for k, v in line_kwargs.items() if v != ""}
             
-            self.view.draw_plot(x_plot, y_plot, y_label, **line_kwargs)
+            self.view.draw_plot(x_plot, y_plot, cart_item["y_label"], **line_kwargs)
             
-        # Apply Global Text Settings
-        title_text = self.view.plot_options.title_input.text()
-        title_size = self.view.plot_options.title_size.value()
-        if title_text:
-            self.view.sc.axes.set_title(title_text, fontsize=title_size)
-
-        custom_xlabel = self.view.plot_options.xlabel_input.text()
-        custom_ylabel = self.view.plot_options.ylabel_input.text()
-        label_size = self.view.plot_options.label_size.value()
-        
-        self.view.sc.axes.set_xlabel(custom_xlabel, fontsize=label_size)
-        self.view.sc.axes.set_ylabel(custom_ylabel, fontsize=label_size)
-        
-        tick_size = self.view.plot_options.tick_size.value()
-        self.view.sc.axes.tick_params(axis='both', which='major', labelsize=tick_size)
-        
-        xmin = self.view.plot_options.xmin_input.text()
-        xmax = self.view.plot_options.xmax_input.text()
-        ymin = self.view.plot_options.ymin_input.text()
-        ymax = self.view.plot_options.ymax_input.text()
-        
-        if xmin or xmax:
-            left = float(xmin) if xmin else None
-            right = float(xmax) if xmax else None
-            self.view.sc.axes.set_xlim(left=left, right=right)
-            
-        if ymin or ymax:
-            bottom = float(ymin) if ymin else None
-            top = float(ymax) if ymax else None
-            self.view.sc.axes.set_ylim(bottom=bottom, top=top)
-        
-        if self.view.plot_options.show_legend.isChecked():
-            legend_size = self.view.plot_options.legend_size.value()
-            legend_loc = self.view.plot_options.legend_loc.currentText()
-            self.view.sc.axes.legend(fontsize=legend_size, loc=legend_loc, 
-                                     framealpha=1.0, fancybox=False, frameon=True, edgecolor='black')
-        else:
-            leg = self.view.sc.axes.get_legend()
-            if leg:
-                leg.remove()
-            
-        self.view.sc.figure.tight_layout()
+        actual_font = self.view.apply_global_plot_settings(settings)
+        self.view.plot_options.applied_font_label.setText(f"Applied Font: {actual_font}")
         self.view.update_plot()

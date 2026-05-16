@@ -3,6 +3,11 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QFormLayout, QLineEdit,
                              QComboBox, QTabWidget, QHeaderView, QTableWidgetItem, QMenu, QLabel)
 from PySide6.QtCore import Qt, Signal
 import matplotlib.font_manager as fm
+from pyfastplot.constants import (
+    PLOT_COLORS, PLOT_LINE_STYLES, PLOT_MARKERS, PLOT_FILL_STYLES,
+    LEGEND_LOCATIONS, CURATED_FONTS, DEFAULT_FIG_WIDTH, DEFAULT_FIG_HEIGHT,
+    DEFAULT_DPI, DEFAULT_TITLE_SIZE, DEFAULT_LABEL_SIZE, DEFAULT_TICK_SIZE, DEFAULT_LEGEND_SIZE
+)
 
 class PlotOptionsWidget(QWidget):
     delete_line_signal = Signal(int)
@@ -20,26 +25,19 @@ class PlotOptionsWidget(QWidget):
         global_layout = QFormLayout(global_tab)
         
         self.fig_width = QDoubleSpinBox()
-        self.fig_width.setValue(6.0)
+        self.fig_width.setValue(DEFAULT_FIG_WIDTH)
         self.fig_height = QDoubleSpinBox()
-        self.fig_height.setValue(5.0)
+        self.fig_height.setValue(DEFAULT_FIG_HEIGHT)
         global_layout.addRow("Fig Width (in):", self.fig_width)
         global_layout.addRow("Fig Height (in):", self.fig_height)
         
         self.dpi_input = QSpinBox()
         self.dpi_input.setRange(10, 3000)
-        self.dpi_input.setValue(100)
+        self.dpi_input.setValue(DEFAULT_DPI)
         global_layout.addRow("DPI:", self.dpi_input)
         
         self.font_family = QComboBox()
-        curated_fonts = [
-            "Auto",
-            "DejaVu Sans (Default)",
-            "Times New Roman",
-            "Arial",
-            "Korean (System Default)"
-        ]
-        self.font_family.addItems(curated_fonts)
+        self.font_family.addItems(CURATED_FONTS)
         self.font_family.setCurrentText("Auto")
         global_layout.addRow("Font:", self.font_family)
         
@@ -48,28 +46,25 @@ class PlotOptionsWidget(QWidget):
         global_layout.addRow("", self.applied_font_label)
         
         self.title_input = QLineEdit()
-        self.title_size = QSpinBox(); self.title_size.setValue(12)
+        self.title_size = QSpinBox(); self.title_size.setValue(DEFAULT_TITLE_SIZE)
         global_layout.addRow("Title:", self.title_input)
         global_layout.addRow("Title Size:", self.title_size)
         
         self.xlabel_input = QLineEdit()
         self.ylabel_input = QLineEdit()
-        self.label_size = QSpinBox(); self.label_size.setValue(10)
+        self.label_size = QSpinBox(); self.label_size.setValue(DEFAULT_LABEL_SIZE)
         global_layout.addRow("X Label:", self.xlabel_input)
         global_layout.addRow("Y Label:", self.ylabel_input)
         global_layout.addRow("Label Size:", self.label_size)
         
-        self.tick_size = QSpinBox(); self.tick_size.setValue(10)
+        self.tick_size = QSpinBox(); self.tick_size.setValue(DEFAULT_TICK_SIZE)
         global_layout.addRow("Tick Size:", self.tick_size)
         
         self.show_legend = QCheckBox()
         self.show_legend.setChecked(False)
-        self.legend_size = QSpinBox(); self.legend_size.setValue(10)
+        self.legend_size = QSpinBox(); self.legend_size.setValue(DEFAULT_LEGEND_SIZE)
         self.legend_loc = QComboBox()
-        self.legend_loc.addItems([
-            "best", "upper right", "upper left", "lower left", "lower right",
-            "right", "center left", "center right", "lower center", "upper center", "center"
-        ])
+        self.legend_loc.addItems(LEGEND_LOCATIONS)
         global_layout.addRow("Show Legend:", self.show_legend)
         global_layout.addRow("Legend Size:", self.legend_size)
         global_layout.addRow("Legend Loc:", self.legend_loc)
@@ -81,6 +76,11 @@ class PlotOptionsWidget(QWidget):
         
         global_layout.addRow("X Min/Max:", self._create_minmax_layout(self.xmin_input, self.xmax_input))
         global_layout.addRow("Y Min/Max:", self._create_minmax_layout(self.ymin_input, self.ymax_input))
+        
+        self.x_log = QCheckBox("X Log Scale")
+        self.y_log = QCheckBox("Y Log Scale")
+        global_layout.addRow(self.x_log)
+        global_layout.addRow(self.y_log)
         
         self.tabs.addTab(global_tab, "Global")
 
@@ -137,15 +137,13 @@ class PlotOptionsWidget(QWidget):
         tbl_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
         self.line_table.setItem(r, 8, tbl_item)
         
-        colors = ["auto", "blue", "orange", "green", "red", "purple", "brown", "black", "gray"]
-        
         color_combo = QComboBox()
-        color_combo.addItems(colors)
+        color_combo.addItems(PLOT_COLORS)
         color_combo.setCurrentIndex(0)
         self.line_table.setCellWidget(r, 2, color_combo)
         
         style_combo = QComboBox()
-        style_combo.addItems(["-", "--", "-.", ":", "None"])
+        style_combo.addItems(PLOT_LINE_STYLES)
         self.line_table.setCellWidget(r, 3, style_combo)
         
         width_spin = QDoubleSpinBox()
@@ -154,7 +152,7 @@ class PlotOptionsWidget(QWidget):
         self.line_table.setCellWidget(r, 4, width_spin)
         
         marker_combo = QComboBox()
-        marker_combo.addItems(["None", "o", "s", "^", "v", "D", "x", "+"])
+        marker_combo.addItems(PLOT_MARKERS)
         self.line_table.setCellWidget(r, 5, marker_combo)
         
         msize_spin = QDoubleSpinBox()
@@ -162,7 +160,7 @@ class PlotOptionsWidget(QWidget):
         self.line_table.setCellWidget(r, 6, msize_spin)
         
         fill_combo = QComboBox()
-        fill_combo.addItems(["full", "none", "bottom", "top", "left", "right"])
+        fill_combo.addItems(PLOT_FILL_STYLES)
         self.line_table.setCellWidget(r, 7, fill_combo)
                 
     def get_line_options(self, row):

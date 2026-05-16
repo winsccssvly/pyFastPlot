@@ -3,6 +3,7 @@ from PySide6.QtCore import Signal, Qt, QModelIndex
 from PySide6.QtWidgets import QTableView, QApplication, QMenu, QHeaderView
 from PySide6.QtGui import QAction
 from .table_model import DataTableModel
+from .text_wizard import TextImportWizard
 
 class TableWidget(QTableView):
     data_pasted_signal = Signal(int, int, list)
@@ -10,6 +11,7 @@ class TableWidget(QTableView):
     delete_cols_signal = Signal(list)
     clear_cells_signal = Signal(list)
     set_as_labels_signal = Signal(int)
+    rename_col_signal = Signal(int, str)
     undo_signal = Signal()
     redo_signal = Signal()
 
@@ -22,10 +24,13 @@ class TableWidget(QTableView):
         self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.setSelectionMode(QTableView.SelectionMode.ExtendedSelection)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_main_context_menu)
         
         h_header = self.horizontalHeader()
         h_header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         h_header.customContextMenuRequested.connect(self.show_col_context_menu)
+        h_header.sectionDoubleClicked.connect(self.on_header_double_clicked)
         
         v_header = self.verticalHeader()
         v_header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -37,7 +42,10 @@ class TableWidget(QTableView):
     def keyPressEvent(self, e):
         if e.modifiers() & Qt.KeyboardModifier.ControlModifier:
             if e.key() == Qt.Key.Key_V:
-                self.paste_data()
+                if e.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                    self.open_wizard()
+                else:
+                    self.paste_data()
             elif e.key() == Qt.Key.Key_Z:
                 self.undo_signal.emit()
             elif e.key() == Qt.Key.Key_Y:
@@ -71,8 +79,20 @@ class TableWidget(QTableView):
             else:
                 del_action.triggered.connect(lambda: self.delete_cols_signal.emit([col]))
                 
+            rename_action = QAction("Rename column", self)
+            rename_action.triggered.connect(lambda: self.on_header_double_clicked(col))
+            
+            menu.addAction(rename_action)
+            menu.addSeparator()
             menu.addAction(del_action)
             menu.exec(h_header.mapToGlobal(pos))
+
+    def on_header_double_clicked(self, logicalIndex):
+        from PySide6.QtWidgets import QInputDialog
+        old_name = self.model_obj.headerData(logicalIndex, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+        new_name, ok = QInputDialog.getText(self, "Rename Column", "Enter new column name:", text=old_name)
+        if ok and new_name.strip():
+            self.rename_col_signal.emit(logicalIndex, new_name.strip())
 
     def show_row_context_menu(self, pos):
         v_header = self.verticalHeader()
@@ -98,6 +118,35 @@ class TableWidget(QTableView):
             menu.addAction(del_action)
             menu.exec(v_header.mapToGlobal(pos))
     
+    def show_main_context_menu(self, pos):
+        menu = QMenu()
+        wizard_action = QAction("Text Import Wizard (Paste Special)...", self)
+        wizard_action.setShortcut("Ctrl+Shift+V")
+        wizard_action.triggered.connect(self.open_wizard)
+        menu.addAction(wizard_action)
+        
+        paste_action = QAction("Paste (Default)", self)
+        paste_action.setShortcut("Ctrl+V")
+        paste_action.triggered.connect(self.paste_data)
+        menu.addAction(paste_action)
+        
+        menu.exec(self.viewport().mapToGlobal(pos))
+
+    def open_wizard(self):
+        clipboard = QApplication.clipboard()
+        if not clipboard: return
+        text = clipboard.text()
+        if not text: return
+        
+        dialog = TextImportWizard(self, text)
+        if dialog.exec() == TextImportWizard.DialogCode.Accepted:
+            parsed_data = dialog.get_data()
+            if parsed_data:
+                index = self.currentIndex()
+                start_row = index.row() if index.isValid() else 0
+                start_col = index.column() if index.isValid() else 0
+                self.data_pasted_signal.emit(start_row, start_col, parsed_data)
+
     def paste_data(self):
         clipboard = QApplication.clipboard()
         if not clipboard: return

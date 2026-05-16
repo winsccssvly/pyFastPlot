@@ -7,12 +7,13 @@
 ## Key Features
 
 - **Drag & Drop Data Loading**: Import CSV files instantly by dragging them into the application.
-- **Clipboard Support (Ctrl+V)**: Copy data from Excel or Google Sheets and paste it directly into the table widget.
+- **Clipboard Support (Ctrl+V)**: Copy data from Excel or Google Sheets. Features a **Text Import Wizard** (Ctrl+Shift+V) for advanced pasting.
 - **Multiple Dataset Management**: Manage various datasets in a list and modify headers (labels) individually.
 - **Advanced Plot Customization**:
-  - **Global Settings**: Fixed canvas size, manual axis limits (X/Y), and LaTeX support for titles and axis labels.
+  - **Global Settings**: Fixed canvas size, log scale toggles (X/Y), manual axis limits, and font family control.
   - **Line Settings**: Comprehensive table for managing line colors, styles, widths, and markers.
 - **One-Click Export**: Copy the rendered plot to the system clipboard for immediate use in presentations or documents.
+- **Error Tracking**: Built-in logging system tracking issues to `~/.pyfastplot/pyfastplot.log`.
 
 ---
 
