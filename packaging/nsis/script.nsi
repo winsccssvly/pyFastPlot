@@ -1,8 +1,8 @@
 ; pyFastPlot NSIS Setup Script
 !define PRODUCT_NAME "pyFastPlot"
-!define PRODUCT_VERSION "1.0"
-!define PRODUCT_PUBLISHER "My Company, Inc."
-!define PRODUCT_WEB_SITE "http://www.mycompany.com"
+!define PRODUCT_VERSION "1.1.0"
+!define PRODUCT_PUBLISHER "winsccssvly"
+!define PRODUCT_WEB_SITE "https://github.com/winsccssvly/pyFastPlot"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\pyFastPlot.exe"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
@@ -35,7 +35,7 @@ SetCompressor /SOLID lzma
 !insertmacro MUI_LANGUAGE "Korean"
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile "Setup.exe"
+OutFile "pyFastPlot_v${PRODUCT_VERSION}_Win64_Setup.exe"
 InstallDir "$PROGRAMFILES\pyFastPlot"
 InstallDirRegKey HKLM "${PRODUCT_DIR_REGKEY}" ""
 ShowInstDetails show
