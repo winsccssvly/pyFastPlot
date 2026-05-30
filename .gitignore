@@ -2,6 +2,11 @@
 **/__pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
 
 # Build and Distribution
 packaging/nsis/*.exe
@@ -9,6 +14,8 @@ dist/
 build/
 *.spec
 *.exe
+*.msi
+*.zip
 
 # Virtual Environment
 venv/
@@ -31,3 +38,7 @@ share/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Project-local runtime files
+.pyfastplot/
+*.log

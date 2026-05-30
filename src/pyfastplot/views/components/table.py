@@ -1,9 +1,11 @@
 import numpy as np
-from PySide6.QtCore import Signal, Qt, QModelIndex
-from PySide6.QtWidgets import QTableView, QApplication, QMenu, QHeaderView
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QApplication, QHeaderView, QMenu, QTableView
+
 from .table_model import DataTableModel
 from .text_wizard import TextImportWizard
+
 
 class TableWidget(QTableView):
     data_pasted_signal = Signal(int, int, list)
@@ -19,19 +21,19 @@ class TableWidget(QTableView):
         super().__init__()
         self.model_obj = DataTableModel()
         self.setModel(self.model_obj)
-        
+
         # UI Tweaks
         self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.setSelectionMode(QTableView.SelectionMode.ExtendedSelection)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_main_context_menu)
-        
+
         h_header = self.horizontalHeader()
         h_header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         h_header.customContextMenuRequested.connect(self.show_col_context_menu)
         h_header.sectionDoubleClicked.connect(self.on_header_double_clicked)
-        
+
         v_header = self.verticalHeader()
         v_header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         v_header.customContextMenuRequested.connect(self.show_row_context_menu)
@@ -69,19 +71,23 @@ class TableWidget(QTableView):
         if col >= 0:
             menu = QMenu()
             del_action = QAction("Delete entire column", self)
-            
+
             selected_indexes = self.selectionModel().selectedIndexes()
             selected_cols = set(idx.column() for idx in selected_indexes)
-                
+
             if col in selected_cols and len(selected_cols) > 1:
                 del_action.setText(f"Delete {len(selected_cols)} selected columns")
-                del_action.triggered.connect(lambda: self.delete_cols_signal.emit(list(selected_cols)))
+                del_action.triggered.connect(
+                    lambda: self.delete_cols_signal.emit(list(selected_cols))
+                )
             else:
-                del_action.triggered.connect(lambda: self.delete_cols_signal.emit([col]))
-                
+                del_action.triggered.connect(
+                    lambda: self.delete_cols_signal.emit([col])
+                )
+
             rename_action = QAction("Rename column", self)
             rename_action.triggered.connect(lambda: self.on_header_double_clicked(col))
-            
+
             menu.addAction(rename_action)
             menu.addSeparator()
             menu.addAction(del_action)
@@ -89,8 +95,13 @@ class TableWidget(QTableView):
 
     def on_header_double_clicked(self, logicalIndex):
         from PySide6.QtWidgets import QInputDialog
-        old_name = self.model_obj.headerData(logicalIndex, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
-        new_name, ok = QInputDialog.getText(self, "Rename Column", "Enter new column name:", text=old_name)
+
+        old_name = self.model_obj.headerData(
+            logicalIndex, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole
+        )
+        new_name, ok = QInputDialog.getText(
+            self, "Rename Column", "Enter new column name:", text=old_name
+        )
         if ok and new_name.strip():
             self.rename_col_signal.emit(logicalIndex, new_name.strip())
 
@@ -100,44 +111,52 @@ class TableWidget(QTableView):
         if row >= 0:
             menu = QMenu()
             del_action = QAction("Delete entire row", self)
-            
+
             selected_indexes = self.selectionModel().selectedIndexes()
             selected_rows = set(idx.row() for idx in selected_indexes)
-            
+
             if row in selected_rows and len(selected_rows) > 1:
                 del_action.setText(f"Delete {len(selected_rows)} selected rows")
-                del_action.triggered.connect(lambda: self.delete_rows_signal.emit(list(selected_rows)))
+                del_action.triggered.connect(
+                    lambda: self.delete_rows_signal.emit(list(selected_rows))
+                )
             else:
-                del_action.triggered.connect(lambda: self.delete_rows_signal.emit([row]))
-                
+                del_action.triggered.connect(
+                    lambda: self.delete_rows_signal.emit([row])
+                )
+
             promote_action = QAction("Set as Column Labels", self)
-            promote_action.triggered.connect(lambda: self.set_as_labels_signal.emit(row))
+            promote_action.triggered.connect(
+                lambda: self.set_as_labels_signal.emit(row)
+            )
             menu.addAction(promote_action)
             menu.addSeparator()
 
             menu.addAction(del_action)
             menu.exec(v_header.mapToGlobal(pos))
-    
+
     def show_main_context_menu(self, pos):
         menu = QMenu()
         wizard_action = QAction("Text Import Wizard (Paste Special)...", self)
         wizard_action.setShortcut("Ctrl+Shift+V")
         wizard_action.triggered.connect(self.open_wizard)
         menu.addAction(wizard_action)
-        
+
         paste_action = QAction("Paste (Default)", self)
         paste_action.setShortcut("Ctrl+V")
         paste_action.triggered.connect(self.paste_data)
         menu.addAction(paste_action)
-        
+
         menu.exec(self.viewport().mapToGlobal(pos))
 
     def open_wizard(self):
         clipboard = QApplication.clipboard()
-        if not clipboard: return
+        if not clipboard:
+            return
         text = clipboard.text()
-        if not text: return
-        
+        if not text:
+            return
+
         dialog = TextImportWizard(self, text)
         if dialog.exec() == TextImportWizard.DialogCode.Accepted:
             parsed_data = dialog.get_data()
@@ -149,25 +168,26 @@ class TableWidget(QTableView):
 
     def paste_data(self):
         clipboard = QApplication.clipboard()
-        if not clipboard: return
+        if not clipboard:
+            return
         clipboard_text = clipboard.text()
-        if not clipboard_text: return
-        
+        if not clipboard_text:
+            return
+
         index = self.currentIndex()
         start_row = index.row() if index.isValid() else 0
         start_col = index.column() if index.isValid() else 0
-        
-        rows = clipboard_text.strip('\n').split('\n')
+
+        rows = clipboard_text.strip("\n").split("\n")
         parsed_data = []
         for r in rows:
             row_vals = []
-            for val_str in r.split('\t'):
+            for val_str in r.split("\t"):
                 val_str = val_str.strip()
                 try:
                     row_vals.append(float(val_str))
                 except ValueError:
                     row_vals.append(val_str if val_str else np.nan)
             parsed_data.append(row_vals)
-        
-        self.data_pasted_signal.emit(start_row, start_col, parsed_data)
 
+        self.data_pasted_signal.emit(start_row, start_col, parsed_data)

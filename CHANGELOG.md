@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- AGENTS.md with repository-specific coding-agent guidance.
+- pyproject.toml with package metadata, Ruff configuration, pytest settings, and
+  optional development/build dependencies.
+- .gitattributes for stable text and binary file handling.
+- English and Korean user manuals.
+- Packaging README with direct Nuitka and NSIS commands.
+- Minimal pytest coverage for the data model and resource path resolution.
+
+### Changed
+- Updated README to match the current project layout, build process, and docs.
+- Moved build-only packages out of requirements.txt and into the `build`
+  optional dependency group.
+- Updated NSIS packaging to use 64-bit Program Files, 64-bit registry view,
+  application icons, stable shortcut icons, and no finish-page auto-run.
+- Reworked launcher and resource path handling to avoid machine-local paths.
+- Applied Ruff formatting and safe lint cleanups across the source tree.
+- Replaced the legacy icon assets with transparent-background pyFastPlot icon
+  PNG/ICO files.
+
+### Removed
+- Removed the architecture document in favor of user manuals.
+- Removed the standalone icon-conversion utility from scripts.
+
 ## [1.1.0] - 2026-05-17
 ### Added
 - Text Import Wizard for advanced clipboard data pasting.

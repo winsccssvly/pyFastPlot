@@ -1,18 +1,19 @@
-from PySide6.QtCore import Signal, Qt
-from PySide6.QtWidgets import QListWidget, QMenu, QListWidgetItem
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QListWidget, QMenu
+
 
 class FileListWidget(QListWidget):
     file_dropped_signal = Signal(str)
     delete_table_signal = Signal(str)
-    rename_table_signal = Signal(str, str) # old_name, new_name
+    rename_table_signal = Signal(str, str)  # old_name, new_name
     reload_table_signal = Signal(str)
-    
+
     def __init__(self):
         super().__init__()
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
         self.itemChanged.connect(self.on_item_changed)
-        
+
     def add_table_item(self, text, is_file_based=False):
         super().addItem(text)
         item = self.item(self.count() - 1)
@@ -20,7 +21,7 @@ class FileListWidget(QListWidget):
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
             item.setData(Qt.ItemDataRole.UserRole, item.text())
             item.setData(Qt.ItemDataRole.UserRole + 1, is_file_based)
-        
+
     def on_item_changed(self, item):
         old_name = item.data(Qt.ItemDataRole.UserRole)
         new_name = item.text()
@@ -33,13 +34,13 @@ class FileListWidget(QListWidget):
         if item is not None:
             menu = QMenu()
             is_file_based = item.data(Qt.ItemDataRole.UserRole + 1)
-            
+
             reload_action = None
             if is_file_based:
                 reload_action = menu.addAction("Reload from source")
-                
+
             delete_action = menu.addAction("Delete table")
-            
+
             action = menu.exec(self.mapToGlobal(pos))
             if action == delete_action:
                 self.delete_table_signal.emit(item.text())

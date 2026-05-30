@@ -1,48 +1,57 @@
-import sys
-import os
 import logging
+import os
+import sys
 from pathlib import Path
 
-# Set up logging directory and file
-log_dir = Path.home() / ".pyfastplot"
-log_dir.mkdir(parents=True, exist_ok=True)
-log_file = log_dir / "pyfastplot.log"
+
+LOG_DIR = Path.home() / ".pyfastplot"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = LOG_DIR / "pyfastplot.log"
 
 logging.basicConfig(
-    filename=str(log_file),
+    filename=str(LOG_FILE),
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
 logger = logging.getLogger("pyFastPlot")
 logger.info("Application starting...")
 
-# Check if the application is running in a standalone (frozen) environment
-is_frozen = getattr(sys, 'frozen', False) or 'NUITKA_PYTHON_EXE' in os.environ
 
-if not is_frozen:
-    # In development, add 'src' to the path to enable package imports
-    src_path = os.path.join(os.path.dirname(__file__), 'src')
-    if src_path not in sys.path:
-        sys.path.insert(0, src_path)
+def _is_frozen() -> bool:
+    """Return True when running from a bundled executable."""
+    return getattr(sys, "frozen", False) or "NUITKA_PYTHON_EXE" in os.environ
+
+
+def _configure_dev_import_path() -> None:
+    """Add the local src layout to sys.path during source-tree execution."""
+    if _is_frozen():
+        return
+
+    src_path = Path(__file__).resolve().parent / "src"
+    src_text = str(src_path)
+    if src_text not in sys.path:
+        sys.path.insert(0, src_text)
+
+
+_configure_dev_import_path()
 
 try:
     from pyfastplot.app import main
-except Exception as e:
-    # If the app fails to start, log details to help debugging
-    logger.critical(f"Failed to start pyfastplot module.")
-    logger.critical(f"Error: {e}", exc_info=True)
-    logger.critical(f"Current Directory: {os.getcwd()}")
-    logger.critical(f"Executable: {sys.executable}")
-    
-    # Prevent the console from closing immediately so the user can read the error
-    print(f"CRITICAL ERROR: See log file at {log_file} for details.")
-    input("\nPress Enter to exit...")
+except Exception as exc:
+    logger.critical("Failed to start pyfastplot module.", exc_info=True)
+    logger.critical("Error: %s", exc)
+    logger.critical("Current directory: %s", Path.cwd())
+    logger.critical("Executable: %s", sys.executable)
+    print(f"CRITICAL ERROR: See log file at {LOG_FILE} for details.")
+    if not _is_frozen():
+        input("\nPress Enter to exit...")
     sys.exit(1)
+
 
 if __name__ == "__main__":
     try:
         main()
-    except Exception as e:
+    except Exception:
         logger.critical("Unhandled exception during execution", exc_info=True)
         sys.exit(1)

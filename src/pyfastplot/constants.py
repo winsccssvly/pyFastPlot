@@ -1,13 +1,32 @@
 # src/pyfastplot/constants.py
 
-PLOT_COLORS = ["auto", "blue", "orange", "green", "red", "purple", "brown", "black", "gray"]
+PLOT_COLORS = [
+    "auto",
+    "blue",
+    "orange",
+    "green",
+    "red",
+    "purple",
+    "brown",
+    "black",
+    "gray",
+]
 PLOT_LINE_STYLES = ["-", "--", "-.", ":", "None"]
 PLOT_MARKERS = ["None", "o", "s", "^", "v", "D", "x", "+"]
 PLOT_FILL_STYLES = ["full", "none", "bottom", "top", "left", "right"]
 
 LEGEND_LOCATIONS = [
-    "best", "upper right", "upper left", "lower left", "lower right",
-    "right", "center left", "center right", "lower center", "upper center", "center"
+    "best",
+    "upper right",
+    "upper left",
+    "lower left",
+    "lower right",
+    "right",
+    "center left",
+    "center right",
+    "lower center",
+    "upper center",
+    "center",
 ]
 
 CURATED_FONTS = [
@@ -15,7 +34,7 @@ CURATED_FONTS = [
     "DejaVu Sans (Default)",
     "Times New Roman",
     "Arial",
-    "Korean (System Default)"
+    "Korean (System Default)",
 ]
 
 DEFAULT_FIG_WIDTH = 5.0
