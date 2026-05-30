@@ -30,7 +30,8 @@ def main() -> None:
 
     model = DataModel()
     view = MainWindow()
-    MainPresenter(view, model)
+    presenter = MainPresenter(view, model)
+    view.presenter = presenter
 
     view.show()
     sys.exit(app.exec())

@@ -3,7 +3,6 @@ import os
 import sys
 from pathlib import Path
 
-
 LOG_DIR = Path.home() / ".pyfastplot"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOG_DIR / "pyfastplot.log"
