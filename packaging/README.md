@@ -57,7 +57,7 @@ After the Nuitka build exists:
 The installer output is written to:
 
 ```text
-packaging\nsis\pyFastPlot_v1.1.0_Win64_Setup.exe
+packaging\nsis\pyFastPlot_v1.0.0_Win64_Setup.exe
 ```
 
 ## Notes

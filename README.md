@@ -136,7 +136,7 @@ Build the NSIS setup installer after the Nuitka build:
 The installer output is:
 
 ```text
-packaging\nsis\pyFastPlot_v1.1.0_Win64_Setup.exe
+packaging\nsis\pyFastPlot_v1.0.0_Win64_Setup.exe
 ```
 
 See [packaging/README.md](packaging/README.md) for packaging details.

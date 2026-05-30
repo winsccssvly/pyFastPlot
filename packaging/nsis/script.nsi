@@ -1,10 +1,10 @@
 ; pyFastPlot NSIS Setup Script
 !define PRODUCT_NAME "pyFastPlot"
-!define PRODUCT_VERSION "1.1.0"
+!define PRODUCT_VERSION "1.0.0"
 !define PRODUCT_PUBLISHER "pyFastPlot contributors"
 !define PRODUCT_WEB_SITE "https://github.com/winsccssvly/pyFastPlot"
 !define PRODUCT_EXE "pyFastPlot.exe"
-!define PRODUCT_ICON "pyfastplot_icon_1_1_0.ico"
+!define PRODUCT_ICON "pyfastplot_icon_1_0_0.ico"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\${PRODUCT_EXE}"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
