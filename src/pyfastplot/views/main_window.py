@@ -1,366 +1,203 @@
-from matplotlib.backends.backend_qtagg import NavigationToolbar2QT
-from PySide6.QtCore import Qt
+"""Main window hosting pyFastPlot's extensible Figure workspace."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from PySide6.QtGui import QAction, QActionGroup, QColor, QPalette
 from PySide6.QtWidgets import (
-    QAbstractItemView,
-    QComboBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
+    QApplication,
     QMainWindow,
-    QPushButton,
-    QScrollArea,
-    QSplitter,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from .. import __version__
-from .components.file_list import FileListWidget
-from .components.plot_canvas import AspectRatioWidget, MplCanvas
-from .components.plot_options import PlotOptionsWidget
-from .components.table import TableWidget
+from .components.figure_tab import FigureTab
+
+if TYPE_CHECKING:
+    from ..presenters.figure_presenter import FigurePresenter
 
 
 class MainWindow(QMainWindow):
-    """
-    MainWindow orchestrates the main UI layout and acts as the View in the MVP pattern.
-    It assembles UI components and exposes their signals for the Presenter.
-    """
+    """Host independent plotting workspaces in an extensible tab container."""
 
-    def __init__(self):
+    figure_presenter: FigurePresenter | None
+
+    def __init__(self) -> None:
         super().__init__()
+        self.figure_presenter = None
+        self.theme_name = "Light"
         self.setAcceptDrops(True)
-        self.setupUI()
-
-    def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls():
-            event.accept()
-        else:
-            event.ignore()
-
-    def dragMoveEvent(self, event):
-        if event.mimeData().hasUrls():
-            event.accept()
-        else:
-            event.ignore()
-
-    def dropEvent(self, event):
-        if event.mimeData().hasUrls():
-            for url in event.mimeData().urls():
-                file_path = url.toLocalFile()
-                if file_path.lower().endswith(".csv"):
-                    self.table_list_widget.file_dropped_signal.emit(file_path)
-
-    def setupUI(self):
         self.setWindowTitle(f"pyFastPlot {__version__}")
-        self.resize(1000, 800)
-        self.setMinimumSize(800, 600)
+        self.resize(860, 550)
+        self.setMinimumSize(860, 550)
+        self._build_ui()
 
-        main_splitter = QSplitter(Qt.Orientation.Vertical)
-        main_splitter.setChildrenCollapsible(False)
-
-        top_widget = self._create_top_layout()
-        main_splitter.addWidget(top_widget)
-
-        bottom_widget = self._create_bottom_layout()
-        main_splitter.addWidget(bottom_widget)
-
-        # Give the top (graph) more initial space than the bottom (tables)
-        main_splitter.setSizes([500, 300])
-
-        # Wrap the main splitter in a container to provide outer margins
+    def _build_ui(self) -> None:
+        menubar = self.menuBar()
+        file_menu = menubar.addMenu("File")
+        self.action_new_import_format = file_menu.addAction("Add Text Import Format...")
+        self.action_manage_import_formats = file_menu.addAction(
+            "Manage Text Import Formats..."
+        )
+        options_menu = menubar.addMenu("Options")
+        theme_menu = options_menu.addMenu("Theme")
+        self.theme_group = QActionGroup(self)
+        self.action_theme_light = theme_menu.addAction("Light")
+        self.action_theme_light.setCheckable(True)
+        self.theme_group.addAction(self.action_theme_light)
+        self.action_theme_dark = theme_menu.addAction("Dark")
+        self.action_theme_dark.setCheckable(True)
+        self.theme_group.addAction(self.action_theme_dark)
+        self.theme_group.triggered.connect(self._on_theme_changed)
         container = QWidget()
-        container_layout = QVBoxLayout(container)
-        container_layout.setContentsMargins(5, 5, 5, 5)
-        container_layout.addWidget(main_splitter)
-
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(5, 5, 5, 5)
+        self.main_tabs = QTabWidget()
+        self.figure_tab = FigureTab()
+        self.main_tabs.addTab(self.figure_tab, "Figure")
+        self.main_tabs.tabBar().setMinimumHeight(32)
+        layout.addWidget(self.main_tabs)
         self.setCentralWidget(container)
+        initial_theme = self._initial_theme_name()
+        self._set_theme_action_checked(initial_theme)
+        self._apply_theme(initial_theme)
 
-    def _create_top_layout(self):
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.setChildrenCollapsible(False)
+    def _on_theme_changed(self, action: QAction) -> None:
+        self._apply_theme(action.text())
 
-        graph_widget = QWidget()
-        graph_layout = QVBoxLayout(graph_widget)
-        graph_layout.setContentsMargins(0, 0, 0, 0)
+    def _initial_theme_name(self) -> str:
+        """Use the same Windows default-theme detection as pyWavePlot."""
+        try:
+            import winreg
 
-        self.sc = MplCanvas(self, width=5, height=4, dpi=100)
-        self.toolbar = NavigationToolbar2QT(self.sc, self)
+            with winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+            ) as key:
+                light_value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
+            return "Light" if int(light_value) else "Dark"
+        except (OSError, ValueError, TypeError):
+            return "Light"
 
-        self.aspect_wrapper = AspectRatioWidget(self.sc, 5, 4)
-        # Prevent the graph from disappearing if scaled too small
-        self.aspect_wrapper.setMinimumSize(300, 200)
+    def _set_theme_action_checked(self, theme_name: str) -> None:
+        self.action_theme_light.setChecked(theme_name == "Light")
+        self.action_theme_dark.setChecked(theme_name == "Dark")
 
-        graph_layout.addWidget(self.toolbar)
-        graph_layout.addWidget(self.aspect_wrapper)
-
-        option_widget = QWidget()
-        option_layout = QVBoxLayout(option_widget)
-        option_layout.setContentsMargins(0, 0, 0, 0)
-
-        self.plot_options = PlotOptionsWidget()
-
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(self.plot_options)
-        scroll.setMinimumWidth(350)
-
-        button_layout = QHBoxLayout()
-        self.plot_button = QPushButton("Update Plot")
-        self.plot_button.setMinimumHeight(40)
-        self.copy_button = QPushButton("Copy to Clipboard")
-        self.copy_button.setMinimumHeight(40)
-        self.save_button = QPushButton("Save Plot")
-        self.save_button.setMinimumHeight(40)
-
-        button_layout.addWidget(self.plot_button)
-        button_layout.addWidget(self.copy_button)
-        button_layout.addWidget(self.save_button)
-
-        option_layout.addWidget(scroll)
-        option_layout.addLayout(button_layout)
-
-        splitter.addWidget(graph_widget)
-        splitter.addWidget(option_widget)
-
-        # Set initial horizontal sizes so the options panel uses remaining space.
-        splitter.setSizes([600, 400])
-
-        return splitter
-
-    def _create_bottom_layout(self):
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.setChildrenCollapsible(False)
-
-        # 1. File Selection
-        file_widget = QWidget()
-        file_layout = QVBoxLayout(file_widget)
-        file_layout.setContentsMargins(0, 0, 0, 0)
-
-        title_label = QLabel("Data Table")
-        title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        file_layout.addWidget(title_label)
-
-        from PySide6.QtWidgets import QGridLayout
-
-        button_grid = QGridLayout()
-        self.add_input_btn = QPushButton("Generate")
-        self.clear_table_btn = QPushButton("Clear")
-        self.remove_all_btn = QPushButton("Remove All")
-
-        button_grid.addWidget(self.add_input_btn, 0, 0, 1, 2)
-        button_grid.addWidget(self.clear_table_btn, 1, 0)
-        button_grid.addWidget(self.remove_all_btn, 1, 1)
-
-        file_layout.addLayout(button_grid)
-
-        self.table_list_widget = FileListWidget()
-        self.table_list_widget.setSelectionMode(
-            QAbstractItemView.SelectionMode.SingleSelection
-        )
-        file_layout.addWidget(self.table_list_widget)
-
-        # 2. Table Widget
-        table_widget = QWidget()
-        table_layout = QVBoxLayout(table_widget)
-        table_layout.setContentsMargins(0, 0, 0, 0)
-        self.tableWidget = TableWidget()
-        table_layout.addWidget(self.tableWidget)
-
-        # 3. Data Selection Options
-        data_widget = QWidget()
-        data_layout = QVBoxLayout(data_widget)
-        data_layout.setContentsMargins(0, 0, 0, 0)
-
-        sel_title = QLabel("Data Selection")
-        sel_title.setStyleSheet("font-weight: bold; font-size: 14px;")
-        data_layout.addWidget(sel_title)
-
-        x_layout = QHBoxLayout()
-        x_layout.addWidget(QLabel("X:"))
-        self.combo_x = QComboBox()
-        x_layout.addWidget(self.combo_x)
-        data_layout.addLayout(x_layout)
-
-        y_layout = QHBoxLayout()
-        y_layout.addWidget(QLabel("Y:"))
-        self.combo_y = QComboBox()
-        y_layout.addWidget(self.combo_y)
-        data_layout.addLayout(y_layout)
-
-        label_layout = QHBoxLayout()
-        label_layout.addWidget(QLabel("Label:"))
-        self.line_label_input = QLineEdit()
-        self.line_label_input.setPlaceholderText("Custom line label")
-        label_layout.addWidget(self.line_label_input)
-        data_layout.addLayout(label_layout)
-
-        self.new_plot_btn = QPushButton("Plot New")
-        self.new_plot_btn.setMinimumHeight(30)
-        data_layout.addWidget(self.new_plot_btn)
-
-        self.overlay_plot_btn = QPushButton("Overlay Plot")
-        self.overlay_plot_btn.setMinimumHeight(30)
-        data_layout.addWidget(self.overlay_plot_btn)
-
-        self.warning_label = QLabel("")
-        self.warning_label.setStyleSheet(
-            "color: red; font-size: 12px; margin-top: 5px;"
-        )
-        self.warning_label.setWordWrap(True)
-        data_layout.addWidget(self.warning_label)
-
-        data_layout.addStretch()
-
-        splitter.addWidget(file_widget)
-        splitter.addWidget(table_widget)
-        splitter.addWidget(data_widget)
-
-        # Balance the Data Table, Spreadsheet, and Data Selection panels.
-        # Giving slightly less space to the right panel (Data Selection).
-        splitter.setSizes([100, 720, 180])
-
-        return splitter
-
-    def update_selection_ui(self, labels):
-        curr_x = self.combo_x.currentText()
-        curr_y = self.combo_y.currentText()
-
-        self.combo_x.blockSignals(True)
-        self.combo_y.blockSignals(True)
-
-        self.combo_x.clear()
-        self.combo_y.clear()
-
-        if labels:
-            self.combo_x.addItem("Index")
-            for label in labels:
-                self.combo_x.addItem(label)
-                self.combo_y.addItem(label)
-
-            # Restore X
-            if curr_x:
-                idx = self.combo_x.findText(curr_x)
-                if idx >= 0:
-                    self.combo_x.setCurrentIndex(idx)
-                else:
-                    self.combo_x.setCurrentIndex(1 if len(labels) >= 1 else 0)
-            elif len(labels) >= 1:
-                self.combo_x.setCurrentIndex(1)
-
-            # Restore Y
-            if curr_y:
-                idx = self.combo_y.findText(curr_y)
-                if idx >= 0:
-                    self.combo_y.setCurrentIndex(idx)
-                else:
-                    self.combo_y.setCurrentIndex(1 if len(labels) >= 2 else 0)
-            elif len(labels) >= 1:
-                if len(labels) >= 2:
-                    self.combo_y.setCurrentIndex(1)
-                else:
-                    self.combo_y.setCurrentIndex(0)
-
-        self.combo_x.blockSignals(False)
-        self.combo_y.blockSignals(False)
-
-    def restore_selections(self, x_sel, y_sels):
-        self.combo_x.blockSignals(True)
-        idx = self.combo_x.findText(x_sel)
-        if idx >= 0:
-            self.combo_x.setCurrentIndex(idx)
-        self.combo_x.blockSignals(False)
-
-        self.combo_y.blockSignals(True)
-        if y_sels and len(y_sels) > 0:
-            y_sel = y_sels[0]
-            idx_y = self.combo_y.findText(y_sel)
-            if idx_y >= 0:
-                self.combo_y.setCurrentIndex(idx_y)
-        self.combo_y.blockSignals(False)
-
-    def draw_plot(self, x_plot, y_plot, label_text, **kwargs):
-        self.sc.axes.plot(x_plot, y_plot, label=label_text, **kwargs)
-
-    def clear_plot(self):
-        self.sc.axes.clear()
-        self.sc.init_annot()
-
-    def apply_global_plot_settings(self, settings):
-        import platform
-
-        import matplotlib as mpl
-
-        # Apply Font Settings
-        has_korean = settings.get("has_korean", False)
-        font_selection = settings.get("font_selection", "Auto")
-        is_mac = platform.system() == "Darwin"
-        kor_font = "AppleGothic" if is_mac else "Malgun Gothic"
-        actual_font = ""
-
-        if font_selection == "Auto":
-            if has_korean:
-                mpl.rcParams["font.family"] = kor_font
-                actual_font = f"{kor_font} (Auto-detected Korean)"
-            else:
-                mpl.rcParams["font.family"] = "sans-serif"
-                actual_font = "DejaVu Sans (Default)"
-        elif font_selection == "DejaVu Sans (Default)":
-            mpl.rcParams["font.family"] = "sans-serif"
-            actual_font = "DejaVu Sans (Default)"
-        elif font_selection == "Korean (System Default)":
-            mpl.rcParams["font.family"] = kor_font
-            actual_font = kor_font
-        else:
-            mpl.rcParams["font.family"] = font_selection
-            actual_font = font_selection
-
-        mpl.rcParams["axes.unicode_minus"] = False
-
-        title = settings.get("title", "")
-        if title:
-            self.sc.axes.set_title(title, fontsize=settings.get("title_size", 12))
-
-        self.sc.axes.set_xlabel(
-            settings.get("xlabel", ""), fontsize=settings.get("label_size", 10)
-        )
-        self.sc.axes.set_ylabel(
-            settings.get("ylabel", ""), fontsize=settings.get("label_size", 10)
-        )
-
-        self.sc.axes.tick_params(
-            axis="both", which="major", labelsize=settings.get("tick_size", 10)
-        )
-
-        if settings.get("xmin") or settings.get("xmax"):
-            left = float(settings["xmin"]) if settings["xmin"] else None
-            right = float(settings["xmax"]) if settings["xmax"] else None
-            self.sc.axes.set_xlim(left=left, right=right)
-
-        if settings.get("ymin") or settings.get("ymax"):
-            bottom = float(settings["ymin"]) if settings["ymin"] else None
-            top = float(settings["ymax"]) if settings["ymax"] else None
-            self.sc.axes.set_ylim(bottom=bottom, top=top)
-
-        self.sc.axes.set_xscale("log" if settings.get("x_log") else "linear")
-        self.sc.axes.set_yscale("log" if settings.get("y_log") else "linear")
-
-        if settings.get("show_legend"):
-            self.sc.axes.legend(
-                fontsize=settings.get("legend_size", 10),
-                loc=settings.get("legend_loc", "best"),
-                framealpha=1.0,
-                fancybox=False,
-                frameon=True,
-                edgecolor="black",
+    def _apply_theme(self, theme_name: str) -> None:
+        """Apply pyWavePlot's reversible light and dark widget palettes."""
+        self.theme_name = theme_name
+        app = QApplication.instance()
+        if not isinstance(app, QApplication):
+            return
+        app.setStyle("Fusion")
+        is_dark = theme_name == "Dark"
+        palette = QPalette()
+        if is_dark:
+            colors = {
+                "window": QColor(38, 38, 38),
+                "window_text": QColor(235, 235, 235),
+                "base": QColor(28, 28, 28),
+                "alternate": QColor(45, 45, 45),
+                "button": QColor(48, 48, 48),
+                "button_text": QColor(235, 235, 235),
+                "text": QColor(235, 235, 235),
+                "highlight": QColor(76, 124, 180),
+                "tooltip_base": QColor(45, 45, 45),
+                "tooltip_text": QColor(235, 235, 235),
+            }
+            foreground, popup, border, hover, input_background = (
+                "#eeeeee",
+                "#2d2d2d",
+                "#666666",
+                "#3a3a3a",
+                "#242424",
             )
         else:
-            leg = self.sc.axes.get_legend()
-            if leg:
-                leg.remove()
+            colors = {
+                "window": QColor(240, 240, 240),
+                "window_text": QColor(0, 0, 0),
+                "base": QColor(255, 255, 255),
+                "alternate": QColor(245, 245, 245),
+                "button": QColor(240, 240, 240),
+                "button_text": QColor(0, 0, 0),
+                "text": QColor(0, 0, 0),
+                "highlight": QColor(0, 120, 215),
+                "tooltip_base": QColor(255, 255, 220),
+                "tooltip_text": QColor(0, 0, 0),
+            }
+            foreground, popup, border, hover, input_background = (
+                "#202020",
+                "#ffffff",
+                "#a8a8a8",
+                "#e0e0e0",
+                "#ffffff",
+            )
+        palette.setColor(QPalette.ColorRole.Window, colors["window"])
+        palette.setColor(QPalette.ColorRole.WindowText, colors["window_text"])
+        palette.setColor(QPalette.ColorRole.Base, colors["base"])
+        palette.setColor(QPalette.ColorRole.AlternateBase, colors["alternate"])
+        palette.setColor(QPalette.ColorRole.Button, colors["button"])
+        palette.setColor(QPalette.ColorRole.ButtonText, colors["button_text"])
+        palette.setColor(QPalette.ColorRole.Text, colors["text"])
+        palette.setColor(QPalette.ColorRole.Highlight, colors["highlight"])
+        palette.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
+        palette.setColor(QPalette.ColorRole.ToolTipBase, colors["tooltip_base"])
+        palette.setColor(QPalette.ColorRole.ToolTipText, colors["tooltip_text"])
+        app.setPalette(palette)
+        app.setStyleSheet(
+            f"""
+            QToolTip {{
+                color: {foreground}; background-color: {popup};
+                border: 1px solid {border};
+            }}
+            QMenu {{
+                background-color: {popup}; color: {foreground};
+                border: 1px solid {border};
+            }}
+            QMenu::item:selected {{ background-color: {hover}; }}
+            QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit,
+            QPlainTextEdit, QTableView, QTreeView, QListView {{
+                background-color: {input_background}; color: {foreground};
+                selection-background-color: #0078d7; selection-color: #ffffff;
+            }}
+            QHeaderView::section {{
+                background-color: {popup}; color: {foreground};
+                border: 1px solid {border}; padding: 3px;
+            }}
+            QHeaderView::section:checked, QHeaderView::section:selected {{
+                background-color: #0078d7; color: #ffffff;
+            }}
+            """
+        )
+        self.menuBar().setStyleSheet(
+            f"""
+            QMenuBar {{ padding: 1px; margin: 0; border-bottom: 1px solid {border}; }}
+            QMenuBar::item {{ padding: 2px 10px; background: transparent; }}
+            QMenuBar::item:selected {{ background: {hover}; }}
+            """
+        )
 
-        return actual_font
+    def dragEnterEvent(self, event) -> None:
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
 
-    def update_plot(self):
-        self.sc.axes.grid(True)
-        self.sc.draw()
+    def dragMoveEvent(self, event) -> None:
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event) -> None:
+        if not event.mimeData().hasUrls():
+            event.ignore()
+            return
+        for url in event.mimeData().urls():
+            file_path = url.toLocalFile()
+            if file_path:
+                self.figure_tab.file_dropped.emit(file_path)
+        event.acceptProposedAction()

@@ -1,6 +1,8 @@
 import numpy as np
-from PySide6.QtCore import QAbstractTableModel, Qt
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QColor, QFont
+
+DEFAULT_PARENT_INDEX = QModelIndex()
 
 
 class DataTableModel(QAbstractTableModel):
@@ -20,14 +22,12 @@ class DataTableModel(QAbstractTableModel):
         self.data_table = data_table
         self.endResetModel()
 
-    def rowCount(self, parent=None):
-        _ = parent
+    def rowCount(self, parent=DEFAULT_PARENT_INDEX):
         if not self.data_table:
             return 0
         return self.data_table.data.shape[0]
 
-    def columnCount(self, parent=None):
-        _ = parent
+    def columnCount(self, parent=DEFAULT_PARENT_INDEX):
         if not self.data_table:
             return 0
         return self.data_table.data.shape[1]

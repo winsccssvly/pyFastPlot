@@ -1,7 +1,7 @@
 import numpy as np
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QApplication, QHeaderView, QMenu, QTableView
+from PySide6.QtWidgets import QApplication, QFileDialog, QHeaderView, QMenu, QTableView
 
 from .table_model import DataTableModel
 from .text_wizard import TextImportWizard
@@ -43,7 +43,9 @@ class TableWidget(QTableView):
 
     def keyPressEvent(self, e):
         if e.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            if e.key() == Qt.Key.Key_V:
+            if e.key() == Qt.Key.Key_C:
+                self.copy_selection()
+            elif e.key() == Qt.Key.Key_V:
                 if e.modifiers() & Qt.KeyboardModifier.ShiftModifier:
                     self.open_wizard()
                 else:
@@ -58,6 +60,64 @@ class TableWidget(QTableView):
             self.clear_selected_cells()
         else:
             super().keyPressEvent(e)
+
+    def copy_selection(self):
+        """Copy the selected rectangular cell range as TSV text."""
+        indexes = self.selectionModel().selectedIndexes()
+        if not indexes:
+            return
+
+        rows = sorted({index.row() for index in indexes})
+        cols = sorted({index.column() for index in indexes})
+        selected = {(index.row(), index.column()) for index in indexes}
+        lines = []
+        for row in rows:
+            values = []
+            for col in cols:
+                if (row, col) not in selected:
+                    values.append("")
+                    continue
+                index = self.model_obj.index(row, col)
+                value = self.model_obj.data(index, Qt.ItemDataRole.DisplayRole)
+                values.append("" if value is None else str(value))
+            lines.append("\t".join(values))
+        QApplication.clipboard().setText("\n".join(lines))
+
+    def copy_all_data(self):
+        """Copy all table values as TSV text without headers."""
+        rows = []
+        for row in range(self.model_obj.rowCount()):
+            values = []
+            for col in range(self.model_obj.columnCount()):
+                index = self.model_obj.index(row, col)
+                value = self.model_obj.data(index, Qt.ItemDataRole.DisplayRole)
+                values.append("" if value is None else str(value))
+            rows.append("\t".join(values))
+        QApplication.clipboard().setText("\n".join(rows))
+
+    def export_all_data_csv(self, default_name: str = "table.csv"):
+        """Export all table values to CSV without headers."""
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Table CSV", default_name, "CSV Files (*.csv)"
+        )
+        if not path:
+            return
+
+        import csv
+
+        with open(path, "w", newline="", encoding="utf-8-sig") as csv_file:
+            writer = csv.writer(csv_file)
+            for row in range(self.model_obj.rowCount()):
+                writer.writerow(
+                    [
+                        self.model_obj.data(
+                            self.model_obj.index(row, col),
+                            Qt.ItemDataRole.DisplayRole,
+                        )
+                        or ""
+                        for col in range(self.model_obj.columnCount())
+                    ]
+                )
 
     def clear_selected_cells(self):
         indexes = self.selectionModel().selectedIndexes()
@@ -99,8 +159,9 @@ class TableWidget(QTableView):
         old_name = self.model_obj.headerData(
             logicalIndex, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole
         )
+        old_name_text = old_name if isinstance(old_name, str) else ""
         new_name, ok = QInputDialog.getText(
-            self, "Rename Column", "Enter new column name:", text=old_name
+            self, "Rename Column", "Enter new column name:", text=old_name_text
         )
         if ok and new_name.strip():
             self.rename_col_signal.emit(logicalIndex, new_name.strip())

@@ -42,3 +42,4 @@ Desktop.ini
 # Project-local runtime files
 .pyfastplot/
 *.log
+run_main.bat
